@@ -201,7 +201,6 @@ class App(tk.Tk):
         self.cola = queue.Queue()
         self.cancelar = threading.Event()
         self.descargando = False
-        self.ultimo_url = ""   # para no volver a autopegar el enlace ya descargado
 
         self.url = tk.StringVar()
         self.formato = tk.StringVar(value=self.config_app.get("formato", "mp4"))
@@ -209,6 +208,7 @@ class App(tk.Tk):
         destino = self.config_app.get("destino")
         self.destino = tk.StringVar(value=destino if destino and os.path.isdir(destino) else carpeta_descargas())
         self.estado = tk.StringVar(value="Pega un enlace de YouTube o de un Short.")
+        self.ultimo_archivo = None  # ruta del último archivo descargado
 
         self._estilos()
         self._construir()
@@ -216,7 +216,6 @@ class App(tk.Tk):
         self._centrar()
 
         self.bind("<Return>", lambda e: self.accion_principal())
-        self.bind("<FocusIn>", self._autopegar)
         self.protocol("WM_DELETE_WINDOW", self._cerrar)
         self.after(100, self._leer_cola)
 
@@ -371,17 +370,6 @@ class App(tk.Tk):
         except tk.TclError:
             pass
 
-    def _autopegar(self, _evento=None):
-        # Si el campo está vacío y hay un enlace de YouTube copiado, lo pega solo.
-        if self.descargando or self.url.get().strip():
-            return
-        try:
-            texto = self.clipboard_get().strip()
-        except tk.TclError:
-            return
-        if PATRON_YT.search(texto) and "\n" not in texto and texto != self.ultimo_url:
-            self.url.set(texto)
-
     def elegir_carpeta(self):
         ruta = filedialog.askdirectory(title="Elige dónde guardar", initialdir=self.destino.get())
         if ruta:
@@ -389,11 +377,19 @@ class App(tk.Tk):
             self._mostrar_destino()
 
     def abrir_carpeta(self):
-        ruta = self.destino.get()
-        if sys.platform == "win32":
-            os.startfile(ruta)
+        archivo = self.ultimo_archivo
+        if archivo and os.path.isfile(archivo):
+            if sys.platform == "win32":
+                # Abre el Explorador con el archivo ya seleccionado
+                subprocess.Popen(["explorer", "/select,", os.path.normpath(archivo)])
+                return
+            archivo_dir = os.path.dirname(archivo)
         else:
-            subprocess.Popen(["xdg-open", ruta])
+            archivo_dir = self.destino.get()
+        if sys.platform == "win32":
+            os.startfile(archivo_dir)
+        else:
+            subprocess.Popen(["xdg-open", archivo_dir])
 
     def accion_principal(self):
         if self.descargando:
@@ -420,7 +416,6 @@ class App(tk.Tk):
         guardar_config(self.config_app)
 
         self.descargando = True
-        self.ultimo_url = url
         self.cancelar.clear()
         self.btn_abrir.pack_forget()
         self.boton.configure(text="Cancelar")
@@ -459,7 +454,9 @@ class App(tk.Tk):
             if self.cancelar.is_set():
                 self.cola.put(("cancelado",))
             else:
-                self.cola.put(("listo", (info or {}).get("title", "")))
+                descargas = (info or {}).get("requested_downloads") or [{}]
+                archivo = descargas[-1].get("filepath")  # ruta final (ya convertida a mp3/mp4)
+                self.cola.put(("listo", (info or {}).get("title", ""), archivo))
         except Exception as exc:  # noqa: BLE001 — cualquier fallo se muestra al usuario
             if self.cancelar.is_set() or isinstance(exc, Cancelado):
                 self.cola.put(("cancelado",))
@@ -490,6 +487,7 @@ class App(tk.Tk):
                     self.barra.start(12)
                     self.estado.set("Convirtiendo…")
                 elif tipo == "listo":
+                    self.ultimo_archivo = msg[2]
                     self._terminar()
                     self.barra.configure(value=100)
                     self.estado.set("Listo ✓  " + (msg[1][:45] if msg[1] else ""))

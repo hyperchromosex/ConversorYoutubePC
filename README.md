@@ -2,7 +2,7 @@
 
 Aplicación sencilla para Windows que descarga videos y Shorts de YouTube en MP3 o MP4.
 
-- Pega el enlace (si ya lo tienes copiado, se pega solo al abrir la ventana).
+- Pega el enlace con Ctrl + V o con el botón **Pegar**.
 - Elige MP3 o MP4 y, para MP4, la calidad (1080p por defecto).
 - Pulsa **Descargar** o Enter. Se puede cancelar en cualquier momento.
 - Recuerda la última carpeta, formato y calidad usados.
