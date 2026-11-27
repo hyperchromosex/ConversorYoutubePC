@@ -1,0 +1,88 @@
+name: Compilar Conversor
+
+# Se ejecuta al subir una etiqueta de versión (v1.0.0, v1.0.1, v1.1.0...).
+# También se puede lanzar a mano desde la pestaña Actions (sin publicar Release).
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # necesario para crear la Release y subir el .zip
+
+env:
+  # Versiones fijas para que cada compilación sea reproducible.
+  PYTHON_VERSION: "3.12"
+  PYINSTALLER_VERSION: "6.22.3"
+  FFMPEG_VERSION: "7.1"       # build "essentials" de gyan.dev
+  DENO_VERSION: "v2.6.10"
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller==${{ env.PYINSTALLER_VERSION }}
+
+      - name: Compilar Conversor.exe con PyInstaller
+        # --windowed: app de ventana, sin consola negra detrás.
+        # --icon: icono del .exe en el Explorador. --add-data: icono de la ventana.
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --name Conversor
+          --icon icono.ico --add-data "icono.ico;."
+          Conversor.py
+
+      - name: Descargar FFmpeg y Deno, y armar la carpeta de distribución
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $out = "release\Conversor"
+          New-Item -ItemType Directory -Force -Path "$out\ffmpeg", "$out\deno" | Out-Null
+          Copy-Item dist\Conversor.exe $out\
+
+          # FFmpeg: solo ffmpeg.exe y ffprobe.exe
+          $ff = "https://github.com/GyanD/codexffmpeg/releases/download/$env:FFMPEG_VERSION/ffmpeg-$env:FFMPEG_VERSION-essentials_build.zip"
+          Invoke-WebRequest -Uri $ff -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp
+          $bin = Get-ChildItem ffmpeg_tmp -Recurse -Directory -Filter bin | Select-Object -First 1
+          Copy-Item "$($bin.FullName)\ffmpeg.exe"  "$out\ffmpeg\"
+          Copy-Item "$($bin.FullName)\ffprobe.exe" "$out\ffmpeg\"
+          Copy-Item "$($bin.Parent.FullName)\LICENSE" "$out\ffmpeg\LICENSE.txt" -ErrorAction SilentlyContinue
+
+          # Deno: motor JavaScript que yt-dlp necesita para YouTube
+          $dn = "https://github.com/denoland/deno/releases/download/$env:DENO_VERSION/deno-x86_64-pc-windows-msvc.zip"
+          Invoke-WebRequest -Uri $dn -OutFile deno.zip
+          Expand-Archive deno.zip -DestinationPath "$out\deno"
+
+          Get-ChildItem $out -Recurse | Select-Object FullName, Length
+
+      - name: Comprimir en .zip
+        shell: pwsh
+        run: Compress-Archive -Path release\Conversor -DestinationPath "Conversor-${{ github.ref_name }}.zip"
+
+      - name: Guardar el .zip como artefacto del workflow
+        uses: actions/upload-artifact@v4
+        with:
+          name: Conversor-${{ github.ref_name }}
+          path: Conversor-${{ github.ref_name }}.zip
+
+      - name: Publicar Release con el .zip
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Conversor-${{ github.ref_name }}.zip
+          generate_release_notes: true

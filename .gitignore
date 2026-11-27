@@ -1,0 +1,31 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+
+# Salidas de PyInstaller
+build/
+dist/
+*.spec
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+
+# Ejecutables externos: no se suben al repo (pesan mucho; GitHub rechaza
+# archivos > 100 MB). Se copian a mano en local y GitHub Actions los descarga.
+ffmpeg/*.exe
+deno/*.exe
+
+# Editores / sistema
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# Descargas de prueba
+*.mp3
+*.mp4
+*.m4a
+*.webm
+*.part

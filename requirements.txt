@@ -1,0 +1,15 @@
+# Dependencia real de Conversor.py: yt-dlp (tkinter, msvcrt, os y sys vienen con Python).
+# [default] instala los extras recomendados, incluido yt-dlp-ejs (necesario para YouTube).
+yt-dlp[default]==2026.11.23
+yt-dlp-ejs==0.8.0
+
+# Dependencias que instala yt-dlp[default], fijadas para que la compilación sea reproducible.
+brotli==1.2.1
+certifi==2026.11.20
+charset-normalizer==3.5.3
+idna==3.20
+mutagen==1.48.1
+pycryptodomex==3.24.2
+requests==2.34.2
+urllib3==2.8.0
+websockets==17.4
