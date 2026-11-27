@@ -16,6 +16,7 @@ __pycache__/
 # archivos > 100 MB). Se copian a mano en local y GitHub Actions los descarga.
 ffmpeg/*.exe
 deno/*.exe
+quickjs/*.exe
 
 # Editores / sistema
 .vscode/

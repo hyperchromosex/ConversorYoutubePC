@@ -14,16 +14,15 @@ Aplicación sencilla para Windows que descarga videos y Shorts de YouTube en MP3
 3. Abre `Conversor.exe` con doble clic.
 
 No muevas `Conversor.exe` fuera de su carpeta: necesita tener al lado las carpetas
-`ffmpeg\` y `deno\`. Si quieres tenerlo en el Escritorio, crea un acceso directo.
+`ffmpeg\` y `quickjs\`. Si quieres tenerlo en el Escritorio, crea un acceso directo.
 
 ```
 Conversor\
 ├── Conversor.exe
 ├── ffmpeg\
-│   ├── ffmpeg.exe
-│   └── ffprobe.exe
-└── deno\
-    └── deno.exe
+│   └── ffmpeg.exe
+└── quickjs\
+    └── qjs.exe      (motor JavaScript que yt-dlp necesita para YouTube)
 ```
 
 > Windows SmartScreen puede avisar porque el `.exe` no está firmado:
@@ -42,7 +41,7 @@ pip install -r requirements.txt
 
 Copia los ejecutables externos dentro del proyecto (no se suben a GitHub):
 
-- `ffmpeg\ffmpeg.exe` y `ffmpeg\ffprobe.exe`: desde la carpeta `bin` de tu descarga de FFmpeg.
+- `ffmpeg\ffmpeg.exe`: desde la carpeta `bin` de tu descarga de FFmpeg (ffprobe no hace falta).
 - `deno\deno.exe`: desde https://github.com/denoland/deno/releases
   (archivo `deno-x86_64-pc-windows-msvc.zip`). Si ya tienes Deno instalado en
   el sistema, puedes saltarte este paso.
@@ -74,7 +73,7 @@ git tag v1.0.1
 git push origin v1.0.1
 ```
 
-Al subir la etiqueta, GitHub Actions compila la app, le añade FFmpeg y Deno, y
+Al subir la etiqueta, GitHub Actions compila la app, le añade FFmpeg y QuickJS, y
 publica el `.zip` en **Releases** automáticamente.
 
 Versionado (SemVer):
@@ -91,5 +90,5 @@ Suele arreglarse actualizando yt-dlp. Cambia la versión en `requirements.txt`
 ## Licencias
 
 - FFmpeg: GPL — https://ffmpeg.org/legal.html
-- Deno: MIT
+- QuickJS-NG: MIT (o Deno: MIT, si se compila con JS_RUNTIME: "deno")
 - yt-dlp: Unlicense

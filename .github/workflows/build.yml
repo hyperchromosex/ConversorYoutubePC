@@ -16,6 +16,10 @@ env:
   PYTHON_VERSION: "3.12"
   PYINSTALLER_VERSION: "6.22.3"
   FFMPEG_VERSION: "7.1"       # build "essentials" de gyan.dev
+  # Motor JavaScript para YouTube: "quickjs" (~2 MB) o "deno" (~100 MB, el recomendado por yt-dlp).
+  # Si YouTube empieza a fallar o a tardar mucho con QuickJS, cambia esto a "deno".
+  JS_RUNTIME: "quickjs"
+  QUICKJS_VERSION: "v0.17.0"
   DENO_VERSION: "v2.6.10"
 
 jobs:
@@ -46,39 +50,49 @@ jobs:
           --icon icono.ico --add-data "icono.ico;."
           Conversor.py
 
-      - name: Descargar FFmpeg y Deno, y armar la carpeta de distribución
+      - name: Descargar FFmpeg y el motor JavaScript, y armar la carpeta de distribución
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
           $out = "release\Conversor"
-          New-Item -ItemType Directory -Force -Path "$out\ffmpeg", "$out\deno" | Out-Null
+          New-Item -ItemType Directory -Force -Path "$out\ffmpeg" | Out-Null
           Copy-Item dist\Conversor.exe $out\
 
-          # FFmpeg: solo ffmpeg.exe y ffprobe.exe
+          # FFmpeg: solo ffmpeg.exe (yt-dlp funciona sin ffprobe)
           $ff = "https://github.com/GyanD/codexffmpeg/releases/download/$env:FFMPEG_VERSION/ffmpeg-$env:FFMPEG_VERSION-essentials_build.zip"
           Invoke-WebRequest -Uri $ff -OutFile ffmpeg.zip
           Expand-Archive ffmpeg.zip -DestinationPath ffmpeg_tmp
           $bin = Get-ChildItem ffmpeg_tmp -Recurse -Directory -Filter bin | Select-Object -First 1
-          Copy-Item "$($bin.FullName)\ffmpeg.exe"  "$out\ffmpeg\"
-          Copy-Item "$($bin.FullName)\ffprobe.exe" "$out\ffmpeg\"
+          Copy-Item "$($bin.FullName)\ffmpeg.exe" "$out\ffmpeg\"
           Copy-Item "$($bin.Parent.FullName)\LICENSE" "$out\ffmpeg\LICENSE.txt" -ErrorAction SilentlyContinue
 
-          # Deno: motor JavaScript que yt-dlp necesita para YouTube
-          $dn = "https://github.com/denoland/deno/releases/download/$env:DENO_VERSION/deno-x86_64-pc-windows-msvc.zip"
-          Invoke-WebRequest -Uri $dn -OutFile deno.zip
-          Expand-Archive deno.zip -DestinationPath "$out\deno"
+          # Motor JavaScript que yt-dlp necesita para YouTube
+          if ($env:JS_RUNTIME -eq "deno") {
+            New-Item -ItemType Directory -Force -Path "$out\deno" | Out-Null
+            $dn = "https://github.com/denoland/deno/releases/download/$env:DENO_VERSION/deno-x86_64-pc-windows-msvc.zip"
+            Invoke-WebRequest -Uri $dn -OutFile deno.zip
+            Expand-Archive deno.zip -DestinationPath "$out\deno"
+          } else {
+            New-Item -ItemType Directory -Force -Path "$out\quickjs" | Out-Null
+            $qj = "https://github.com/quickjs-ng/quickjs/releases/download/$env:QUICKJS_VERSION/qjs-windows-x86_64.exe"
+            Invoke-WebRequest -Uri $qj -OutFile "$out\quickjs\qjs.exe"
+          }
 
-          Get-ChildItem $out -Recurse | Select-Object FullName, Length
+          Get-ChildItem $out -Recurse -File | Select-Object FullName, @{n="MB";e={[math]::Round($_.Length/1MB,1)}}
 
-      - name: Comprimir en .zip
+      - name: Comprimir en .zip (7-Zip, formato ZIP estándar compatible con Windows)
         shell: pwsh
-        run: Compress-Archive -Path release\Conversor -DestinationPath "Conversor-${{ github.ref_name }}.zip"
+        run: |
+          Push-Location release
+          7z a -tzip -mm=Deflate -mx=9 "..\Conversor-${{ github.ref_name }}.zip" Conversor
+          Pop-Location
 
-      - name: Guardar el .zip como artefacto del workflow
+      # Se sube la CARPETA (no el .zip) para que la descarga de Actions sea un solo .zip
+      - name: Guardar la app como artefacto del workflow
         uses: actions/upload-artifact@v4
         with:
           name: Conversor-${{ github.ref_name }}
-          path: Conversor-${{ github.ref_name }}.zip
+          path: release/
 
       - name: Publicar Release con el .zip
         if: startsWith(github.ref, 'refs/tags/v')

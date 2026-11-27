@@ -66,12 +66,20 @@ def ffmpeg_disponible():
     return buscar_ffmpeg() is not None or shutil.which("ffmpeg") is not None
 
 
-def buscar_deno():
-    for nombre in ("deno.exe", "deno"):
-        ruta = os.path.join(carpeta_de_la_app(), "deno", nombre)
+def buscar_motor_js():
+    """Motor JavaScript que yt-dlp necesita para YouTube, si viene junto a la app.
+    Se prefiere Deno si está; si no, QuickJS (mucho más liviano)."""
+    base = carpeta_de_la_app()
+    candidatos = [
+        ("deno", os.path.join(base, "deno", "deno.exe")),
+        ("deno", os.path.join(base, "deno", "deno")),
+        ("quickjs", os.path.join(base, "quickjs", "qjs.exe")),
+        ("quickjs", os.path.join(base, "quickjs", "qjs")),
+    ]
+    for motor, ruta in candidatos:
         if os.path.isfile(ruta):
-            return ruta
-    return None
+            return {motor: {"path": ruta}}
+    return None  # yt-dlp buscará Deno instalado en el sistema
 
 
 def ruta_config():
@@ -126,9 +134,9 @@ def opciones_descarga(formato, calidad, destino, hook_progreso, hook_post):
     if ffmpeg:
         opts["ffmpeg_location"] = ffmpeg
 
-    deno = buscar_deno()
-    if deno:
-        opts["js_runtimes"] = {"deno": {"path": deno}}
+    motor_js = buscar_motor_js()
+    if motor_js:
+        opts["js_runtimes"] = motor_js
 
     if formato == "mp3":
         opts.update({
